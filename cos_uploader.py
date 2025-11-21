@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import numpy as np
 import torch
 from PIL import Image
@@ -18,10 +19,10 @@ class TencentCOSUploader:
         return {
             "required": {
                 "images": ("IMAGE", ),
-                "secret_id": ("STRING", {"multiline": False, "default": ""}),
-                "secret_key": ("STRING", {"multiline": False, "default": ""}),
-                "region": ("STRING", {"multiline": False, "default": "ap-guangzhou"}),
-                "bucket": ("STRING", {"multiline": False, "default": ""}),
+                # "secret_id": ("STRING", {"multiline": False, "default": ""}), # Moved to config.json
+                # "secret_key": ("STRING", {"multiline": False, "default": ""}), # Moved to config.json
+                # "region": ("STRING", {"multiline": False, "default": "ap-guangzhou"}), # Moved to config.json
+                # "bucket": ("STRING", {"multiline": False, "default": ""}), # Moved to config.json
                 "cos_path": ("STRING", {"multiline": False, "default": "comfyui_output/"}),
                 "filename_prefix": ("STRING", {"multiline": False, "default": "comfy_"}),
                 "compress_level": ("INT", {"default": 90, "min": 1, "max": 100, "step": 1}),
@@ -34,9 +35,31 @@ class TencentCOSUploader:
     CATEGORY = "TencentCOS"
     OUTPUT_NODE = True
 
-    def upload_image(self, images, secret_id, secret_key, region, bucket, cos_path, filename_prefix, compress_level):
+    def _load_config(self):
+        config_path = os.path.join(os.path.dirname(__file__), "config.json")
+        if not os.path.exists(config_path):
+            print(f"Error: config.json not found at {config_path}")
+            return None
+        try:
+            with open(config_path, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading config.json: {e}")
+            return None
+
+    def upload_image(self, images, cos_path, filename_prefix, compress_level):
+        config_data = self._load_config()
+        if not config_data:
+            print("Error: Failed to load configuration. Please ensure config.json exists and is valid.")
+            return ([],)
+
+        secret_id = config_data.get("secret_id")
+        secret_key = config_data.get("secret_key")
+        region = config_data.get("region")
+        bucket = config_data.get("bucket")
+
         if not secret_id or not secret_key or not bucket:
-            print("Error: Missing COS configuration (SecretId, SecretKey, or Bucket)")
+            print("Error: Missing COS configuration in config.json (secret_id, secret_key, or bucket)")
             return ([],)
 
         # Initialize COS Client
@@ -82,21 +105,17 @@ class TencentCOSUploader:
                 )
                 
                 # Construct URL
-                # Default format: https://<BucketName-APPID>.cos.<Region>.myqcloud.com/<Key>
-                # We assume the user provided bucket name might or might not include APPID, 
-                # but usually the SDK handles the bucket name as provided.
-                # If the user provides "example-1250000000", that's the bucket name.
                 url = f"https://{bucket}.cos.{region}.myqcloud.com/{key}"
                 uploaded_urls.append(url)
                 print(f"Successfully uploaded to {url}")
                 
             except Exception as e:
                 print(f"Failed to upload {key}: {str(e)}")
-                # Continue with other images or raise? 
-                # For a batch, we probably want to try all.
                 continue
 
-        return (uploaded_urls,)
+        # Return a dictionary containing the UI output and the result tuple
+        # This ensures the uploaded_urls are available in the ComfyUI history/UI
+        return {"ui": {"uploaded_urls": uploaded_urls}, "result": (uploaded_urls,)}
 
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
