@@ -19,10 +19,8 @@ class TencentCOSUploader:
         return {
             "required": {
                 "images": ("IMAGE", ),
-                # "secret_id": ("STRING", {"multiline": False, "default": ""}), # Moved to config.json
-                # "secret_key": ("STRING", {"multiline": False, "default": ""}), # Moved to config.json
-                # "region": ("STRING", {"multiline": False, "default": "ap-guangzhou"}), # Moved to config.json
-                # "bucket": ("STRING", {"multiline": False, "default": ""}), # Moved to config.json
+                "region": ("STRING", {"multiline": False, "default": "ap-guangzhou"}),
+                "bucket": ("STRING", {"multiline": False, "default": ""}),
                 "cos_path": ("STRING", {"multiline": False, "default": "comfyui_output/"}),
                 "filename_prefix": ("STRING", {"multiline": False, "default": "comfy_"}),
                 "compress_level": ("INT", {"default": 90, "min": 1, "max": 100, "step": 1}),
@@ -47,7 +45,7 @@ class TencentCOSUploader:
             print(f"Error loading config.json: {e}")
             return None
 
-    def upload_image(self, images, cos_path, filename_prefix, compress_level):
+    def upload_image(self, images, region, bucket, cos_path, filename_prefix, compress_level):
         config_data = self._load_config()
         if not config_data:
             print("Error: Failed to load configuration. Please ensure config.json exists and is valid.")
@@ -55,11 +53,9 @@ class TencentCOSUploader:
 
         secret_id = config_data.get("secret_id")
         secret_key = config_data.get("secret_key")
-        region = config_data.get("region")
-        bucket = config_data.get("bucket")
 
-        if not secret_id or not secret_key or not bucket:
-            print("Error: Missing COS configuration in config.json (secret_id, secret_key, or bucket)")
+        if not secret_id or not secret_key:
+            print("Error: Missing COS configuration in config.json (secret_id or secret_key)")
             return ([],)
 
         # Initialize COS Client

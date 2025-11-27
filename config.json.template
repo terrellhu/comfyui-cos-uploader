@@ -1,6 +1,4 @@
 {
     "secret_id": "YOUR_SECRET_ID",
-    "secret_key": "YOUR_SECRET_KEY",
-    "region": "ap-guangzhou",
-    "bucket": "your-bucket-1250000000"
+    "secret_key": "YOUR_SECRET_KEY"
 }
