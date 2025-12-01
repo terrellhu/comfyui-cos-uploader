@@ -24,6 +24,7 @@ class TencentCOSUploader:
                 "cos_path": ("STRING", {"multiline": False, "default": "comfyui_output/"}),
                 "filename_prefix": ("STRING", {"multiline": False, "default": "comfy_"}),
                 "compress_level": ("INT", {"default": 90, "min": 1, "max": 100, "step": 1}),
+                "convert_to_jpg": ("BOOLEAN", {"default": True}),
             },
         }
 
@@ -45,7 +46,7 @@ class TencentCOSUploader:
             print(f"Error loading config.json: {e}")
             return None
 
-    def upload_image(self, images, region, bucket, cos_path, filename_prefix, compress_level):
+    def upload_image(self, images, region, bucket, cos_path, filename_prefix, compress_level, convert_to_jpg):
         config_data = self._load_config()
         if not config_data:
             print("Error: Failed to load configuration. Please ensure config.json exists and is valid.")
@@ -75,19 +76,25 @@ class TencentCOSUploader:
             i = 255. * image.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
             
-            # Convert to RGB (in case of RGBA) to save as JPEG
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-
-            # Save to buffer as JPEG
             output_buffer = BytesIO()
-            img.save(output_buffer, format='JPEG', quality=compress_level)
+            file_extension = ".jpg"
+            
+            if convert_to_jpg:
+                # Convert to RGB (in case of RGBA) to save as JPEG
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                img.save(output_buffer, format='JPEG', quality=compress_level)
+            else:
+                # Save as PNG
+                img.save(output_buffer, format='PNG')
+                file_extension = ".png"
+
             output_buffer.seek(0)
             
             # Generate filename
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             random_suffix = random.randint(1000, 9999)
-            filename = f"{filename_prefix}{timestamp}_{random_suffix}.jpg"
+            filename = f"{filename_prefix}{timestamp}_{random_suffix}{file_extension}"
             key = f"{cos_path}{filename}"
 
             try:
