@@ -25,6 +25,7 @@ class TencentCOSUploader:
                 "filename_prefix": ("STRING", {"multiline": False, "default": "comfy_"}),
                 "compress_level": ("INT", {"default": 90, "min": 1, "max": 100, "step": 1}),
                 "convert_to_jpg": ("BOOLEAN", {"default": True}),
+                "use_accelerate": ("BOOLEAN", {"default": False}),
             },
         }
 
@@ -46,7 +47,7 @@ class TencentCOSUploader:
             print(f"Error loading config.json: {e}")
             return None
 
-    def upload_image(self, images, region, bucket, cos_path, filename_prefix, compress_level, convert_to_jpg):
+    def upload_image(self, images, region, bucket, cos_path, filename_prefix, compress_level, convert_to_jpg, use_accelerate):
         config_data = self._load_config()
         if not config_data:
             print("Error: Failed to load configuration. Please ensure config.json exists and is valid.")
@@ -60,7 +61,13 @@ class TencentCOSUploader:
             return ([],)
 
         # Initialize COS Client
-        config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key)
+        if use_accelerate:
+            # Use global acceleration domain
+            accelerate_domain = f"{bucket}.cos.accelerate.myqcloud.com"
+            config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Domain=accelerate_domain)
+        else:
+            config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key)
+            
         client = CosS3Client(config)
 
         uploaded_urls = []
@@ -108,7 +115,10 @@ class TencentCOSUploader:
                 )
                 
                 # Construct URL
-                url = f"https://{bucket}.cos.{region}.myqcloud.com/{key}"
+                if use_accelerate:
+                    url = f"https://{bucket}.cos.accelerate.myqcloud.com/{key}"
+                else:
+                    url = f"https://{bucket}.cos.{region}.myqcloud.com/{key}"
                 uploaded_urls.append(url)
                 print(f"Successfully uploaded to {url}")
                 
